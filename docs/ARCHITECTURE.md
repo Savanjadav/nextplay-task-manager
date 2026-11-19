@@ -2,11 +2,11 @@
 
 ## 1. Architecture overview
 
-Use a single-page React and TypeScript app built with Vite and styled with Tailwind CSS. Vercel serves the static build from `dist`. The browser uses one Supabase client for Anonymous Auth and the PostgreSQL Data API. Row Level Security (RLS) enforces task ownership. dnd-kit handles drag interactions inside the React board. This stack supports the guest-owned Kanban workflow. [Tailwind with Vite](https://tailwindcss.com/docs/installation/using-vite) · [Vite on Vercel](https://vercel.com/docs/frameworks/frontend/vite) · [Supabase anonymous sign-ins](https://supabase.com/docs/guides/auth/auth-anonymous) · [dnd-kit React](https://dndkit.com/react/quickstart/)
+The application is a single-page React and TypeScript app built with Vite and styled with Tailwind CSS. Vercel serves the static build from `dist`. The browser uses one Supabase client for Anonymous Auth and the PostgreSQL Data API. Row Level Security (RLS) enforces task ownership. dnd-kit handles drag interactions inside the React board. This stack supports the guest-owned Kanban workflow. [Tailwind with Vite](https://tailwindcss.com/docs/installation/using-vite) · [Vite on Vercel](https://vercel.com/docs/frameworks/frontend/vite) · [Supabase anonymous sign-ins](https://supabase.com/docs/guides/auth/auth-anonymous) · [dnd-kit React](https://dndkit.com/react/quickstart/)
 
-## 2. Proposed folder structure
+## 2. Folder structure
 
-The source and configuration paths below are planned for implementation.
+The main implementation paths are shown below. See the root [README](../README.md) for setup and test commands.
 
 ```text
 NextPlay-Assessment/
@@ -14,6 +14,10 @@ NextPlay-Assessment/
 │   ├── DESIGN_SYSTEM.md
 │   └── ARCHITECTURE.md
 ├── src/
+│   ├── components/layout/
+│   │   ├── AppLayout.tsx
+│   │   ├── Header.tsx
+│   │   └── Sidebar.tsx
 │   ├── features/
 │   │   ├── auth/
 │   │   │   ├── AuthFeedback.tsx
@@ -26,6 +30,7 @@ NextPlay-Assessment/
 │   │   │   ├── taskService.ts
 │   │   │   └── useTasks.ts
 │   │   └── board/
+│   │       ├── boardConfig.ts
 │   │       ├── KanbanBoard.tsx
 │   │       ├── KanbanColumn.tsx
 │   │       └── TaskCard.tsx
@@ -39,6 +44,10 @@ NextPlay-Assessment/
 ├── supabase/
 │   ├── schema.sql
 │   └── rls_policies.sql
+├── tests/
+│   ├── taskService.test.mjs
+│   └── board.test.mjs
+├── README.md
 ├── .env.example
 ├── .gitignore
 ├── index.html
@@ -67,7 +76,8 @@ Add `public/` when a static asset needs to be served by name. Extract shared UI 
 | Component | Data received | Responsibilities and actions |
 | --- | --- | --- |
 | `App` | Guest session and startup state from the session hook | Own the page shell and header, display startup feedback and retry, and mount the board for the current guest. |
-| `GuestBoard` | Guest user ID | Call `useTasks`, show loading, error or empty feedback, and pass fetched tasks to the board. |
+| `GuestWorkspace` | Guest user ID | Call `useTasks`, own filters, dialogs and recovery notices, and reset state when identity changes. |
+| `GuestBoard` | Task load state, filters and callbacks | Show loading, error or empty feedback and pass visible tasks to the board. |
 | `KanbanBoard` | Fetched task rows | Filter tasks into the four configured columns. Each column counts and renders its own rows. |
 | `KanbanColumn` | Status, heading, visible tasks and pending move IDs | Provide a drop target for its status, including when empty. Render cards and highlight the current target. |
 | `TaskCard` | Task and pending-move flag | Render the title and available metadata. Expose a focusable drag handle and indicate when a move is saving. |
@@ -94,7 +104,7 @@ Use React state and effects. Data flows through props and actions through callba
 6. The authenticated board reads Supabase through `getTasks()` in development and production. Each fetched `Task` goes directly to the existing board and card components. The shared model preserves IDs, status, priority, nullable metadata, and timestamps. The four configured statuses determine the columns and counts.
 7. The shell remains available during task loading and errors. The board shows counts only after a successful load. A zero-row result renders all four empty columns and an empty-board message. A request failure shows a task-only Retry. The development mock fixture is outside the app's task source.
 
-Run the isolated service checks with `node --test tests/taskService.test.mjs` on Node.js 22.15 or later. They exercise real SDK request construction with simulated Auth and Data API responses. The [live RLS results](../supabase/README.md#task-42-live-guest-isolation-verification) cover database ownership enforcement.
+Run the isolated service checks with `node --test tests/taskService.test.mjs` on Node.js 22.15 or later. They exercise real SDK request construction with simulated Auth and Data API responses. The [live RLS results](../supabase/README.md#live-guest-isolation-verification) cover database ownership enforcement.
 
 ### Guest authentication verification
 
@@ -133,7 +143,7 @@ The dialog calls `deleteTask(taskId, expectedGuestId)`. The service verifies the
 
 A failed request leaves the card visible and the confirmation open for a manual retry. A zero-row result or an unconfirmed network outcome offers **Refresh Board** to reconcile with Supabase. Neither outcome is reported as a successful delete.
 
-Run `NEXTPLAY_LIVE_DELETE=1 node --test tests/board.test.mjs` to create and remove a unique fixture through the UI. The live check confirmed that cancel sent no DELETE, the confirmed action sent one DELETE, and the fixture stayed absent after refresh under the same guest. A separate guest could not see the fixture. [Task 4.2 live RLS results](../supabase/README.md#task-42-live-guest-isolation-verification) cover denied cross-owner deletion.
+Run `NEXTPLAY_LIVE_DELETE=1 node --test tests/board.test.mjs` to create and remove a unique fixture through the UI. The live check confirmed that cancel sent no DELETE, the confirmed action sent one DELETE, and the fixture stayed absent after refresh under the same guest. A separate guest could not see the fixture. [Task 4.2 live RLS results](../supabase/README.md#live-guest-isolation-verification) cover denied cross-owner deletion.
 
 ### Search and filters
 
@@ -161,7 +171,7 @@ Run `node --test tests/board.test.mjs` on a Node.js version supported by Vite wi
 | `Task.priority` | Required `TaskPriority`. The database defaults to `normal`. |
 | `Task.due_date` | Present on the row as a YYYY-MM-DD calendar string or null |
 
-`CreateTaskInput` requires a title and supports optional description, status, priority and due date. `UpdateTaskInput` supports partial changes to those same fields. Both inputs derive from `Task`; the service maintains the allowlist at runtime. Keep due dates as calendar strings and use local calendar dates for urgency comparisons.
+`CreateTaskInput` requires a title and supports optional description, status, priority and due date. `UpdateTaskInput` supports partial changes to those same fields. Both inputs derive from `Task`; the service maintains the allowlist at runtime. Keep due dates as calendar strings. Cards format them without shifting the calendar day; urgency indicators are not implemented.
 
 ## 8. Drag-and-drop data flow
 
@@ -179,12 +189,13 @@ Run `NEXTPLAY_LIVE_DRAG=1 node --test tests/board.test.mjs` for the controlled l
 
 | Situation | User-facing behavior |
 | --- | --- |
-| Authentication startup | Show “Starting your guest session…” while pending. On failure, explain that the session could not start and offer Retry. |
-| Board fetch or connection failure | Show “Couldn’t load your tasks” and offer Retry. Distinguish a failed request from a successful empty result. |
-| Task creation | Show field-level validation and preserve the draft on failure. Disable repeat submits while pending. On an uncertain result, reload first and let the user check whether the task exists before resubmitting. |
-| Task move | Restore the card and show “Couldn’t save the move.” If reconciliation is needed, offer to reload when automatic reload fails. |
-| Empty list or filtered result | Show a create prompt for a new board and a clear-filters action for zero matches. Keep the columns visible. |
-| Loading | Show explicit startup and board-loading feedback. Confine saving feedback to the form or affected card during ordinary writes. |
+| Authentication startup | Show “Preparing your workspace…” while pending. On failure, show “Unable to connect to your workspace. Please try again.” with Retry. |
+| Board fetch or connection failure | Show “Loading your tasks…” while pending, then “Unable to load your tasks. Please try again.” with Retry on failure. An uncertain move instead retains its Refresh Board action. |
+| Task creation or editing | Validate fields, preserve the draft on failure, and block duplicate pending submissions. If confirmation is interrupted, ask the user to check the board before retrying. |
+| Task deletion | Confirm the task name and focus Cancel first. Remove the card only after a confirmed delete; offer Refresh Board for missing or uncertain results. |
+| Task move | Keep the card at its last confirmed status while saving. A failure offers another move attempt. An uncertain result keeps a Refresh Board/Dismiss notice until reconciliation or dismissal. There is no automatic recovery reload. |
+| Empty list or filtered result | Distinguish an empty board from zero filter matches. Clear Filters resets the controls. Keep all four columns visible. |
+| Loading | Show explicit startup and board-loading feedback. Confine ordinary saving feedback to the form or affected task. |
 
 Render short, actionable messages and announce state changes where appropriate. Keep raw Supabase errors, tokens and task contents out of user-visible diagnostics.
 
@@ -193,7 +204,7 @@ Render short, actionable messages and announce state changes where appropriate. 
 | Variable | Purpose |
 | --- | --- |
 | `VITE_SUPABASE_URL` | Supabase project URL used by the browser client |
-| `VITE_SUPABASE_ANON_KEY` | Public anon key for the same project |
+| `VITE_SUPABASE_ANON_KEY` | Publishable or legacy anonymous client key for the same project |
 
 Commit `.env.example` with empty placeholders. Use `.env.local` for local values and configure the equivalents on Vercel for the intended build environments. Validate both values before client startup. Vite embeds these values in the frontend bundle, so enforce authorization through database grants and RLS. Keep service-role keys out of the browser, repository and build environment. [Vite environment variables](https://vite.dev/guide/env-and-mode) · [Supabase API keys](https://supabase.com/docs/guides/getting-started/api-keys)
 
@@ -209,13 +220,13 @@ Verify anonymous sign-in is enabled for the Supabase project behind the build. T
 
 - **Direct browser access.** Supabase provides auth and persistence, while grants and RLS are the authorization boundary. The app uses a single static Vite build.
 - **One board feature.** Keep components focused, with descriptive props and callbacks. Centralize queries in the task service and keep request state in the hook so UI behavior can be tested independently of Supabase.
-- **One task collection.** Derive columns, filters and statistics from it. Use the drag preview for feedback and merge returned rows for confirmed moves. Reload after ambiguous writes. Cross-device synchronization and manual reordering are deferred.
+- **One task collection.** Derive columns, filters and counts from it. Use the drag preview for feedback and merge returned rows for confirmed moves. Reload after ambiguous writes. Cross-device synchronization and manual reordering are deferred.
 - **Persisted browser guest.** Refreshes and browser restarts can restore the same guest while the SDK's browser storage remains available. Clearing that storage or opening another browser starts a separate board.
 
-## 12. Implementation notes for upcoming tasks
+## 12. Verification and current limits
 
-1. During scaffolding, pick compatible React, Vite and Tailwind versions and use one dnd-kit API family. This plan targets the documented `@dnd-kit/react` API. Record exact versions in the lockfile.
-2. Build the four-column layout against sample data. Define status and priority once, then align the database constraints with those values.
-3. Apply the schema and RLS SQL from `supabase/` before connecting a new project to the board. Verify same-browser restoration, separate guest ownership, forged-owner inserts and denied unauthenticated requests against Supabase.
-4. Verify task creation and move persistence, including empty-column drops, touch and keyboard interactions, and failure recovery. Search and filtering are implemented. Due-date urgency indicators and additional statistics remain optional.
-5. Smoke-test the production build in a fresh browser and verify Vercel environment settings. Repository visibility remains open. A private repository link should be checked for reviewer access before submission.
+The [public repository](https://github.com/Savanjadav/nextplay-task-manager) is deployed at [the production app](https://nextplay-task-manager-gold.vercel.app). The verified deployment uses `main` commit `cda8ae349ff9c922d4010ce6dd6c5ea10dea6d52`, Vite, and Node.js 26.x. Production and Preview share the configured Supabase backend; Development is unset.
+
+Hosted checks passed for anonymous sign-in, session restoration, CRUD, cross-column pointer dragging, keyboard movement, refresh persistence, guest isolation, mobile navigation and dialog usability. Browser widths of 320, 375, 768, 1024 and 1440 px were checked. Hosted interruption recovery, physical touch devices and screen-reader walkthroughs were not tested. The local simulated suite covers recovery behavior; see the root [testing instructions](../README.md#testing).
+
+Custom within-column ordering, cross-device guest recovery, collaboration, due-date urgency indicators and dashboard statistics are not implemented. The mock task file is a development fixture and does not populate the live board.

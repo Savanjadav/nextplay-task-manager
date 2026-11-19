@@ -29,7 +29,7 @@ The CSS-first Tailwind theme in `src/index.css` exposes the palette through sema
 | Normal priority | `#4338CA` | `#EEF2FF` |
 | High priority, Overdue or Error | `#B91C1C` | `#FEF2F2` |
 
-Keep the full status or priority label visible. Use “Due soon” and “Overdue” beside the date when urgency matters.
+Keep the full status or priority label visible. Due-soon and overdue colors are reserved for future urgency indicators; current cards display the due date without an urgency label.
 
 ## Typography
 
@@ -46,7 +46,7 @@ Use the platform system sans-serif stack. Sizes below are given as font size and
 
 ## Spacing and layout
 
-Use Tailwind’s 4px spacing increments. Start with 16px page padding on mobile, 24px on tablet and 32px on desktop. Separate sections by 24–32px. Use 16px card padding, 16–20px column gaps, 16px between form fields and 8px between a label and its field. Give buttons 16px horizontal padding and a 40px minimum height on desktop, increasing the target to 44px for touch. Plan a 240px desktop sidebar with 16px inner padding and 4–8px between items. Plan a 64px desktop header.
+Use Tailwind’s 4px spacing increments. Start with 16px page padding on mobile, 24px on tablet and 32px on desktop. Separate sections by 24–32px. Use 16px card padding, 16–20px column gaps, 16px between form fields and 8px between a label and its field. Give buttons 16px horizontal padding and a 44px minimum height for primary form and navigation controls. Use a 240px desktop sidebar with 16px inner padding and 4–8px between items. Use a 64px mobile navigation bar; the main header grows with its content.
 
 ## Radii and elevation
 
@@ -73,7 +73,7 @@ Limit transitions to brief color changes where they help. Apply them with `motio
 - **Inputs.** Use white fills and a control border for text fields, textareas, selects and search. Put labels above fields and helper or error text below. Use a search icon only as a visual cue alongside an accessible name.
 - **Cards.** Lead task cards with the title and show supporting metadata below it. Lead summary cards with the value and give it a descriptive label. Use a brief empty-state message with a relevant action when available.
 - **Badges.** Use compact text on its matching semantic tint. Preserve distinct labels for status, priority and due date, even where colors overlap.
-- **Dialogs.** If task creation or details use a dialog, use a rounded white surface, a visible title and clear footer actions. Move focus inside on open, support Escape and restore focus to the trigger on close.
+- **Dialogs.** For task creation and editing, use a rounded white surface, a visible title and clear footer actions. Move focus inside on open, support Escape and restore focus to the trigger on close.
 
 ## Responsive layout
 
