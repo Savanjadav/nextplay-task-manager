@@ -1,0 +1,42 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+node_modules/
+dist/
+dist-ssr
+*.local
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Local environment
+.env
+.env.local
+.env.*.local
+.env.*
+!.env.example
+
+# Local hosting and Supabase CLI state
+/.vercel/
+/supabase/.temp/
+/supabase/.branches/
+
+# Confidential assessment
+/assessment.pdf
+
+# Local planning notes containing assessment instructions
+/docs/PROJECT_PLAN.md
